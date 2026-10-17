@@ -1,0 +1,1 @@
+Chromium: five qualifying demo purchases, reward reservation, cashier acceptance, ready and collection. Responsive widths: 320, 390, 736, 1280 px. No runtime errors. No real wallet, transfer or native notification tested.

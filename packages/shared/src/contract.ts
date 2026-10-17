@@ -65,6 +65,7 @@ export const AuthVerifyRequest = z.object({
 })
 
 export interface SessionView {
+  merchantCheckoutToken?: string
   sessionId: string; status: SessionStatus; role: 'payer' | 'receiver'
   expiresAt: string; chargeDeadlineAt?: string
   counterpart?: { displayName: string; verificationStatus: 'unverified'; addressTail: string }

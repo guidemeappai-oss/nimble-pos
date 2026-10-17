@@ -1,0 +1,36 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { ProductForm } from '../src/merchant/ProductForm';
+afterEach(cleanup);
+it('configures a required choice and a fixed bundle component', () => {
+    const save = vi.fn(async () => { });
+    const coffee = { id: 'coffee', name: 'Coffee', category: 'Drinks', available: true, variants: [{ id: 'classic', name: 'Classic', priceMinor: 300 }], extras: [] };
+    render(<ProductForm products={[coffee]} currency="EUR" busy={false} onSave={save} onClose={() => { }}/>);
+    fireEvent.change(screen.getByLabelText('Product name'), { target: { value: 'Breakfast' } });
+    fireEvent.click(screen.getByText('Add extra +'));
+    fireEvent.change(screen.getByLabelText('Extra 1 name'), { target: { value: 'Tea' } });
+    fireEvent.click(screen.getByText('Add choice group +'));
+    fireEvent.change(screen.getByLabelText('Choice group 1 name'), { target: { value: 'Drink' } });
+    fireEvent.change(screen.getByLabelText('Choice group 1 minimum'), { target: { value: '1' } });
+    fireEvent.click(screen.getByLabelText('Drink: Tea'));
+    fireEvent.click(screen.getByText('Add included component +'));
+    fireEvent.change(screen.getByLabelText('Included component 1'), { target: { value: 'coffee:classic' } });
+    fireEvent.click(screen.getByText('Save product →'));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ choiceGroups: [expect.objectContaining({ name: 'Drink', min: 1, max: 1, extraIds: [expect.any(String)] })], components: [{ productId: 'coffee', variantId: 'classic', quantity: 1 }] }));
+});
+it('enforces required multi-select limits in the terminal and charges each extra once', async () => {
+    const { Options } = await import('../src/merchant/Merchant');
+    const add = vi.fn();
+    const product = { id: 'set', name: 'Lunch', category: 'Meals', available: true, variants: [{ id: 'standard', name: 'Standard', priceMinor: 800 }], choiceGroups: [{ id: 'sides', name: 'Sides', min: 2, max: 2, extraIds: ['salad', 'chips', 'soup'] }], extras: [{ id: 'salad', name: 'Salad', available: true, priceMinor: 0 }, { id: 'chips', name: 'Chips', available: true, priceMinor: 100 }, { id: 'soup', name: 'Soup', available: true, priceMinor: 150 }] };
+    render(<Options product={product} currency="EUR" onClose={() => { }} onAdd={add}/>);
+    const button = screen.getByRole('button', { name: /Add to basket/ }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(/Salad/));
+    expect(button.disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(/Chips/));
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain('€9.00');
+    expect((screen.getByLabelText(/Soup/) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(button);
+    expect(add).toHaveBeenCalledWith({ productId: 'set', variantId: 'standard', extraIds: ['salad', 'chips'], quantity: 1 });
+});

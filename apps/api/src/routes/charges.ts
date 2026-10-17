@@ -1,3 +1,4 @@
+import {claimTransfer} from '../services/transferClaims'
 import { CreateChargeRequest, RegisterTxRequest } from '@nimble/shared'
 import { parseLunaString } from '@nimble/shared'
 import { and, eq, gt, inArray } from 'drizzle-orm'
@@ -140,6 +141,7 @@ export async function chargeRoutes(app: FastifyInstance) {
           const [locked] = await tx.update(paymentSession).set({ status: 'SUBMITTED' })
             .where(and(eq(paymentSession.id, found.s.id), eq(paymentSession.status, 'AWAITING_WALLET_AUTH'))).returning()
           if (!locked) return null
+          await claimTransfer(tx as unknown as Db,{network:'nimiq',hash,kind:'LEGACY',referenceId:found.c.id,legacyChargeId:found.c.id})
           const [row] = await tx.insert(chainTransaction).values({
             chargeId: found.c.id, sender: req.user.address, recipient: found.c.recipientAddress,
             amountAtomic: found.c.amountAtomic, hash, status: 'SUBMITTED',
@@ -151,7 +153,7 @@ export async function chargeRoutes(app: FastifyInstance) {
           stateFrom: 'AWAITING_WALLET_AUTH', stateTo: 'SUBMITTED', safeMetadata: { hash } })
         return { code: 201, body: { transactionId: txRow.id } }
       } catch (e: any) {
-        if (e?.code === '23505' && e?.constraint_name === 'tx_network_hash')
+        if (e?.code === 'TRANSACTION_ALREADY_ASSIGNED' || e?.code === '23505' && e?.constraint_name === 'tx_network_hash')
           return { code: 409, body: { error: { code: 'TX_EXISTS', message: 'hash already registered' } } }
         throw e
       }

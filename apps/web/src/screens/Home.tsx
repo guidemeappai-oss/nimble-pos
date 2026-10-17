@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../AppContext'
 import type { HistoryItem } from '../api/client'
 import { Intro, introSeen, markIntroSeen } from '../components/Intro'
+import { MerchantEntry } from '../merchant/MerchantEntry'
 import { Landing } from '../components/Landing'
 import { inNimiqPay } from '../lib/host'
 import { t } from '../i18n'
@@ -54,6 +55,7 @@ export function Home() {
     if (!inNimiqPay()) return <Landing />
     return (
       <main>
+        <MerchantEntry />
         <div className="hero">
           <h1 className="brand">NIM<em>ble</em></h1>
           <p>{t('Pay or get paid with a 6-digit code.')}</p>
@@ -69,6 +71,7 @@ export function Home() {
   return (
     <main>
       <h1 className="brand">NIM<em>ble</em></h1>
+      <MerchantEntry />
       {wrongNetwork && (
         <p role="alert" className="banner">
           {wrongNetwork === 'lagging'

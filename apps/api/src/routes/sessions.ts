@@ -181,7 +181,7 @@ export async function sessionRoutes(app: FastifyInstance) {
         addressTail: p.walletAddress.slice(-4) }
     }
     return {
-      sessionId: s.id, status: s.status, role, expiresAt: s.expiresAt.toISOString(),
+      sessionId: s.id, status: s.status, role, merchantCheckoutToken: s.merchantCheckoutToken ?? undefined, expiresAt: s.expiresAt.toISOString(),
       chargeDeadlineAt: s.chargeDeadlineAt?.toISOString(), counterpart,
       charge: c ? { chargeId: c.id, version: c.version, amountLuna: c.amountAtomic.toString(),
         asset: 'NIM', network: 'nimiq', reference: c.reference, recipientAddress: c.recipientAddress } : undefined,

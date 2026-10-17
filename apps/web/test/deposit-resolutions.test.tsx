@@ -1,0 +1,33 @@
+import {StrictMode} from 'react';
+import {afterEach,expect,it,vi} from 'vitest';
+import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {DepositDecision,DepositResolutionHistory} from '../src/merchant/DepositResolutions';
+import type {DepositResolution,MerchantQuote} from '@nimble/shared';
+import {sendMerchantPayment} from '../src/wallet/merchantPayments';
+vi.mock('../src/wallet/merchantPayments',()=>({sendMerchantPayment:vi.fn(async()=>({hash:'a'.repeat(64)}))}));
+afterEach(()=>{cleanup();localStorage.clear();vi.clearAllMocks()});
+const event={id:'observation',eventKey:'event',asset:'NIM',network:'nimiq:5',amountAtomic:'100000',hash:'b'.repeat(64),eventIndex:0,recipient:'Merchant',sender:'Customer',confirmation:'FINALIZED',occurredAt:'2026-10-17T00:00:00Z',blockNumber:10,blockHash:'block'} as const;
+const quote:MerchantQuote={id:'quote',asset:'NIM',network:'nimiq:5',amountAtomic:'100000',sender:'Merchant',recipient:'Customer',reference:'refund',rate:'1',rateAt:'2026-10-17T00:00:00Z',rateSource:'NOT_APPLICABLE',expiresAt:'2099-01-01T00:00:00Z'};
+const value:DepositResolution={id:'resolution',venueId:'venue',observationId:'observation',kind:'EXCESS',event,orderId:'order',quoteId:null,revision:null,reason:'Second deposit',decidedBy:'owner:id',decidedAt:'2026-10-17T00:00:00Z',verification:'VERIFIED',verificationCode:null,refund:{status:'APPROVED',quote,quoteHistory:[],pendingHash:null,payment:null,approvedBy:'owner:id',approvedAt:'2026-10-17T00:00:00Z'}};
+it('freezes an uncertain owner decision and retries its exact reason and key without accepting the deposit automatically',async()=>{
+ const writes:any[]=[];const changed=vi.fn(),request=vi.fn(async(_a:string,_m:string,_p:string,body:any)=>{writes.push(body);if(writes.length===1)throw new Error('Lost response');return {...value,kind:'UNMATCHED',refund:null,reason:body.reason}});
+ render(<StrictMode><DepositDecision api={{request} as never} venueId="venue" event={event} onChanged={changed}/></StrictMode>);expect(request).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Review this deposit'}));fireEvent.change(screen.getByLabelText('Deposit decision reason'),{target:{value:'Customer unidentified'}});fireEvent.click(screen.getByRole('button',{name:'Record deposit decision'}));await screen.findByRole('alert');expect((screen.getByLabelText('Deposit decision reason').closest('fieldset') as HTMLFieldSetElement).disabled).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'Retry same deposit decision'}));await waitFor(()=>expect(changed).toHaveBeenCalledOnce());expect(writes[1]).toEqual(writes[0]);expect(writes[1]).toMatchObject({decision:'UNMATCHED',reason:'Customer unidentified',observationId:'observation'});expect(sendMerchantPayment).not.toHaveBeenCalled();
+});
+it('reuses a submitted refund hash after a lost response and never signs the refund twice',async()=>{
+ let row=structuredClone(value),posts=0;const bodies:any[]=[];
+ const request=vi.fn(async(_a:string,method:string,_p:string,body:any)=>{if(method==='GET')return {items:[row],hasMore:false};bodies.push(body);posts++;if(posts===1)throw new Error('Lost registration response');row={...row,refund:{...row.refund!,status:'CONFIRMED',pendingHash:body.hash,payment:{...quote,hash:body.hash,confirmedAt:'2026-10-17T00:00:00Z'}}};return row});
+ render(<DepositResolutionHistory api={{request} as never} venueId="venue" scope="owner"/>);fireEvent.click(screen.getByRole('button',{name:'Review resolved deposits and liabilities'}));fireEvent.click(await screen.findByRole('button',{name:'Sign approved deposit refund in wallet'}));await screen.findByRole('alert');expect(sendMerchantPayment).toHaveBeenCalledOnce();
+ fireEvent.click(screen.getByRole('button',{name:'Sign approved deposit refund in wallet'}));await screen.findByText(/Verified returned transfer/);expect(sendMerchantPayment).toHaveBeenCalledOnce();expect(bodies[1]).toEqual(bodies[0]);
+});
+it('recovers an interrupted wallet signature using a known hash without starting another transfer',async()=>{
+ localStorage.setItem('nimble:deposit-refund:owner:venue:resolution',JSON.stringify({state:'SIGNING',revision:1,quoteId:'quote'}));let row=structuredClone(value);const request=vi.fn(async(_a:string,method:string,_p:string,body:any)=>{if(method==='GET')return {items:[row],hasMore:false};row={...row,refund:{...row.refund!,pendingHash:body.hash,status:'SUBMITTED'}};return row});
+ render(<DepositResolutionHistory api={{request} as never} venueId="venue" scope="owner"/>);fireEvent.click(screen.getByRole('button',{name:'Review resolved deposits and liabilities'}));fireEvent.change(await screen.findByLabelText('Known deposit refund transaction hash'),{target:{value:'c'.repeat(64)}});fireEvent.click(screen.getByRole('button',{name:'Recover deposit refund hash'}));await screen.findByText(/A refund hash is recorded/);expect(sendMerchantPayment).not.toHaveBeenCalled();
+});
+
+it.each(['LINK','EXCESS'] as const)('requires selecting a historical quote and submits its actual revision for %s',async decision=>{
+ const id='11111111-1111-4111-8111-111111111111',writes:any[]=[];
+ const request=vi.fn(async(_a:string,method:string,_p:string,body:any)=>{if(method==='GET')return {id,number:4,status:'AWAITING_PAYMENT',payment:null,quotes:[{...quote,id:'historical',revision:3,sender:'Customer',recipient:'Merchant',reference:`nimble-order:${id}:3`}]};writes.push(body);return {...value,kind:'LINKED',orderId:id,quoteId:'historical',revision:3,refund:null}});
+ render(<DepositDecision api={{request} as never} venueId="venue" event={event} onChanged={()=>{}}/>);fireEvent.click(screen.getByRole('button',{name:'Review this deposit'}));fireEvent.change(screen.getByLabelText('Deposit decision'),{target:{value:decision}});fireEvent.change(screen.getByLabelText('Order ID for this deposit'),{target:{value:id}});fireEvent.click(screen.getByRole('button',{name:'Load deposit order context'}));await screen.findByRole('option',{name:/Revision 3/});fireEvent.change(screen.getByLabelText('Deposit decision reason'),{target:{value:'Customer confirmed revision three'}});expect((screen.getByRole('button',{name:'Record deposit decision'}) as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.change(screen.getByLabelText('Historical order quote'),{target:{value:'historical'}});fireEvent.click(screen.getByRole('button',{name:'Record deposit decision'}));await waitFor(()=>expect(writes).toHaveLength(1));expect(writes[0]).toMatchObject({decision,orderId:id,quoteId:'historical',revision:3});expect(sendMerchantPayment).not.toHaveBeenCalled();
+});

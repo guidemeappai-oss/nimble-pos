@@ -1,3 +1,7 @@
+import {startDepositReconciliation} from './services/depositSettlement'
+import { configuredWalletSource, discoverWallets } from './services/walletDiscovery'
+import { cleanMenuImages } from './routes/menuImages'
+import { cleanTaskPhotos } from './services/taskPhotos'
 import { buildApp } from './app'
 import { makeDb } from './db/client'
 import { env, DEV_JWT_SECRET, DEV_CODE_PEPPER } from './env'
@@ -10,16 +14,23 @@ import { makeNimiqChainClient } from './services/nimiqChain'
 import { FakeChainClient } from './services/fakeChain'
 import { makeCoingeckoRates } from './services/rates'
 import { makeBalanceReader } from './services/balances'
+import { makeMerchantPayments } from './services/merchantPayments'
+import { configuredNotificationWorker } from './services/merchantNotifications'
+import { startMerchantReconciliation } from './services/merchantSettlement'
 
 if ((env.mockAuth || env.fakeChain) && process.env.NODE_ENV === 'production')
   throw new Error('MOCK_AUTH / FAKE_CHAIN must never be enabled in production')
 
 if (process.env.NODE_ENV === 'production') {
   const missing: string[] = []
-  if (!process.env.JWT_SECRET || env.jwtSecret === DEV_JWT_SECRET) missing.push('JWT_SECRET')
-  if (!process.env.CODE_PEPPER || env.codePepper === DEV_CODE_PEPPER) missing.push('CODE_PEPPER')
+  if (!process.env.JWT_SECRET || env.jwtSecret === DEV_JWT_SECRET)
+    missing.push('JWT_SECRET')
+  if (!process.env.CODE_PEPPER || env.codePepper === DEV_CODE_PEPPER)
+    missing.push('CODE_PEPPER')
   if (missing.length > 0)
-    throw new Error(`${missing.join(', ')} must be set to a real secret in production (dev default is not allowed)`)
+    throw new Error(
+      `${missing.join(', ')} must be set to a real secret in production (dev default is not allowed)`,
+    )
 }
 
 // Dev/E2E only: accepts MockWalletProvider identities. The mock publicKey
@@ -37,32 +48,106 @@ const mockVerifier: HostVerifier = {
   verify: async ({ payload }) => {
     const publicKey = payload.publicKey ?? ''
     if (!publicKey.startsWith('mock-pk')) return null
-    const address = publicKey.includes(':') ? publicKey.slice(publicKey.indexOf(':') + 1) : MOCK_DEFAULT_ADDRESS
+    const address = publicKey.includes(':')
+      ? publicKey.slice(publicKey.indexOf(':') + 1)
+      : MOCK_DEFAULT_ADDRESS
     return { subject: address, payoutAddress: address }
   },
 }
 
-const { db } = makeDb(env.databaseUrl)
+const { db, sql } = makeDb(env.databaseUrl)
 const events = new SessionEvents()
 const rates = makeCoingeckoRates()
-const chainRef = { current: null as import('./services/monitor').ChainClient | null }
+const chainRef = {
+  current: null as import('./services/monitor').ChainClient | null,
+}
 const balances = makeBalanceReader(env.nimiqRpcUrl)
-const app = buildApp({ db, hostVerifier: env.mockAuth ? mockVerifier : nimiqHostVerifier, events, rates, chainRef, balances })
+const merchantPayments = makeMerchantPayments({
+  nimiqRpcUrl: env.nimiqRpcUrl,
+  nimiqNetworkId: env.nimiqNetwork === 'MainAlbatross' ? 24 : 5,
+  polygonRpcUrl: process.env.POLYGON_RPC_URL,
+})
+const app = buildApp({
+  db,
+  hostVerifier: env.mockAuth ? mockVerifier : nimiqHostVerifier,
+  events,
+  rates,
+  chainRef,
+  balances,
+  merchantPayments,
+})
+if(process.env.WALLET_DISCOVERY_ENABLED==='1'){
+ let running=false
+ const tick=async()=>{if(running)return;running=true;try{await discoverWallets(db,configuredWalletSource())}catch{app.log.warn('Wallet discovery unavailable')}finally{running=false}}
+ const timer=setInterval(()=>void tick(),60000)
+ void tick()
+ app.addHook('onClose',async()=>clearInterval(timer))
+}
+let photosCleaning = false
+const cleanPhotos = async () => {
+  if (photosCleaning) return
+  photosCleaning = true
+  try { await cleanTaskPhotos(db); await cleanMenuImages(db) }
+  catch { app.log.warn('private task photo cleanup failed; retained for retry') }
+  finally { photosCleaning = false }
+}
+void cleanPhotos()
+const photoCleanupTimer = setInterval(() => { void cleanPhotos() }, 3600000)
+app.addHook('onClose', async () => { clearInterval(photoCleanupTimer) })
+const stopDepositReconciliation = startDepositReconciliation(db,merchantPayments,5000,()=>app.log.warn('deposit settlement could not be checked; retained for retry'))
+const stopMerchantReconciliation = startMerchantReconciliation(
+  db,
+  merchantPayments,
+  5000,
+  () => {
+    app.log.warn('merchant settlement could not be checked; retained for retry')
+  },
+)
+const notificationWorker = configuredNotificationWorker(sql, process.env)
+let notificationRunning = false
+const notificationTimer = notificationWorker
+  ? setInterval(async () => {
+      if (notificationRunning) return
+      notificationRunning = true
+      try {
+        await notificationWorker.tick()
+      } catch {
+        app.log.warn('notification delivery unavailable; retained for retry')
+      } finally {
+        notificationRunning = false
+      }
+    }, 2000)
+  : null
+app.addHook('onClose', async () => {
+  stopMerchantReconciliation()
+  stopDepositReconciliation()
+  if (notificationTimer) clearInterval(notificationTimer)
+  await sql.end()
+})
 startSweeper(db, events)
 
 if (env.fakeChain) {
   const fake = new FakeChainClient()
   chainRef.current = fake
   startMonitor(db, events, fake, 500, rates)
-  app.post('/__test/chain/advance', async req => {
-    const body = (req.body ?? {}) as { blocks?: number; macro?: boolean; reset?: boolean }
+  app.post('/__test/chain/advance', async (req) => {
+    const body = (req.body ?? {}) as {
+      blocks?: number
+      macro?: boolean
+      reset?: boolean
+    }
     return fake.advance(body)
   })
 } else {
   // Chain consensus can take a while or fail — the API must serve regardless.
   void makeNimiqChainClient()
-    .then(chain => { chainRef.current = chain; startMonitor(db, events, chain, 1500, rates) })
-    .catch(err => app.log.error({ err }, 'chain client unavailable — monitor not started'))
+    .then((chain) => {
+      chainRef.current = chain
+      startMonitor(db, events, chain, 1500, rates)
+    })
+    .catch((err) =>
+      app.log.error({ err }, 'chain client unavailable — monitor not started'),
+    )
 }
 
 await app.listen({ port: env.port, host: '0.0.0.0' })

@@ -1,0 +1,2 @@
+ALTER TABLE "merchant_inventory_item" DROP CONSTRAINT "merchant_inventory_unit";--> statement-breakpoint
+ALTER TABLE "merchant_inventory_item" ADD CONSTRAINT "merchant_inventory_unit" CHECK ("merchant_inventory_item"."unit" IN ('PIECE','PORTION','MILLIGRAM','MILLILITRE'));

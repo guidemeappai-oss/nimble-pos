@@ -1,3 +1,4 @@
+import {claimTransfer} from './transferClaims'
 import { and, eq, inArray } from 'drizzle-orm'
 import { assertTransition, lunaToNim, type SessionStatus } from '@nimble/shared'
 import { chainTransaction, charge, paymentSession, receipt, userProfile } from '../db/schema'
@@ -84,6 +85,7 @@ export async function monitorTick(db: Db, events: SessionEvents, chain: ChainCli
           .where(and(eq(paymentSession.id, s.id), eq(paymentSession.status, 'AWAITING_WALLET_AUTH'))).returning()
         if (!locked) return
         const [payer] = await tx.select().from(userProfile).where(eq(userProfile.id, s.payerUserId))
+        await claimTransfer(tx as unknown as Db,{network:'nimiq',hash:found.hash,kind:'LEGACY',referenceId:c.id,legacyChargeId:c.id})
         await tx.insert(chainTransaction).values({
           chargeId: c.id, sender: payer.walletAddress, recipient: c.recipientAddress,
           amountAtomic: c.amountAtomic, hash: found.hash, status: 'SUBMITTED',

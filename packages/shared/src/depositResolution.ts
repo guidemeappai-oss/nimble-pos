@@ -1,0 +1,3 @@
+import type {MerchantPayment,MerchantQuote} from './merchant';
+import type {WalletObservation} from './walletDiscovery';
+export type DepositResolution={id:string;venueId:string;observationId:string;kind:'UNMATCHED'|'LINK_PENDING'|'LINKED'|'MISMATCH'|'EXCESS';event:WalletObservation;orderId:string|null;quoteId:string|null;revision:number|null;reason:string;decidedBy:string;decidedAt:string;verification:'UNVERIFIED'|'VERIFIED'|'CONFIRMED_MISMATCH';verificationCode:string|null;refund:{status:'REQUESTED'|'APPROVED'|'SUBMITTED'|'CONFIRMED';quote:MerchantQuote|null;quoteHistory:MerchantQuote[];pendingHash:string|null;payment:MerchantPayment|null;approvedBy:string|null;approvedAt:string|null;submittedAt?:string|null}|null};

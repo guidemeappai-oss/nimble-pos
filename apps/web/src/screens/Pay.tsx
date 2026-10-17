@@ -47,7 +47,13 @@ export function Pay({ api: apiProp }: { api?: Api } = {}) {
       // Any post-pairing state (claimed, charged, cancelled, …) moves the
       // payer to the session screen — the code phase is over either way.
       if (status === 'EXPIRED') { clearStored(); setExpired(true) }
-      else if (status && status !== 'AVAILABLE') { clearStored(); navigate(`/session/${s.sessionId}`) }
+      else if (status && status !== 'AVAILABLE') {
+        clearStored()
+        void api.getSession(s.sessionId).then(view => {
+          const checkout = (view as typeof view & { merchantCheckoutToken?: string }).merchantCheckoutToken
+          navigate(checkout ? `/merchant/checkout/${checkout}` : `/session/${s.sessionId}`)
+        }).catch(() => navigate(`/session/${s.sessionId}`))
+      }
     })
   }
 
@@ -64,7 +70,11 @@ export function Pay({ api: apiProp }: { api?: Api } = {}) {
       if (cancelled) return
       if (view.status === 'AVAILABLE') { setSession(stored); await watch(stored) }
       else if (view.status === 'EXPIRED' || view.status === 'CANCELLED') { clearStored(); await generate() }
-      else { clearStored(); navigate(`/session/${stored.sessionId}`) }
+      else {
+        clearStored()
+        const checkout = (view as typeof view & { merchantCheckoutToken?: string }).merchantCheckoutToken
+        navigate(checkout ? `/merchant/checkout/${checkout}` : `/session/${stored.sessionId}`)
+      }
     }).catch(() => { clearStored(); void generate() })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps

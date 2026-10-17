@@ -1,0 +1,6 @@
+2026-10-15 — Chromium, local isolated remote-ordering demo.
+PASS: venue -> product -> basket -> simulated payment -> explicit cashier acceptance -> READY -> customer QR -> verify -> confirm handover -> COLLECTED.
+PASS: narrow/desktop widths 320/390/736/1280, including customer pickup screen; no horizontal overflow or page runtime errors.
+PASS: separate Playwright cases for customer pickup, decision timeout, rejection reason/refund truth, responsive discovery.
+Execution note: Chromium in this container requires --single-process. Separate fresh browser process per case avoids its context-reuse crash. Cases passed individually; the first combined run hit browserContext.newPage Target closed, before application action in cases2/4.
+This evidence covers the demo only, not native wallet signing, physical camera/Android, native PostgreSQL concurrent sessions or real transactions.

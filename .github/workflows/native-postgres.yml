@@ -1,0 +1,58 @@
+name: Native PostgreSQL acceptance
+
+on:
+  pull_request:
+  push:
+    branches: [main, feat/merchant-management, fork/merchant-prelive]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: nimble_test
+          POSTGRES_PASSWORD: disposable_ci_only
+          POSTGRES_DB: nimble_native_test
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U nimble_test -d nimble_native_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify destructive-runner guards
+        run: node --test scripts/test-native-postgres.test.mjs
+      - name: Run complete API suite on native PostgreSQL
+        env:
+          NATIVE_POSTGRES_TEST_URL: postgres://nimble_test:disposable_ci_only@localhost:${{ job.services.postgres.ports[5432] }}/nimble_native_test
+          NATIVE_POSTGRES_ALLOW_RESET: 'yes'
+        run: node scripts/test-native-postgres.mjs 2>&1 | tee native-postgres.log
+      - name: Preserve native acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-postgres-${{ github.sha }}
+          path: native-postgres.log
+          if-no-files-found: ignore
+          retention-days: 14

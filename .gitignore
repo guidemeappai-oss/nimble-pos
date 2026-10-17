@@ -25,3 +25,11 @@ Thumbs.db
 # Test artifacts
 e2e/test-results/
 e2e/playwright-report/
+
+# Private task photo storage
+.private/
+
+# Menu uploads are runtime data, including unpublished drafts.
+.public/
+
+.fork.env

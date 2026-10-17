@@ -1,0 +1,1 @@
+ALTER TABLE "merchant_task_template" ADD COLUMN "schedule_from" timestamp with time zone;

@@ -1,0 +1,1 @@
+export type StockMenuImpact={options:{productId:string;productName:string;kind:'VARIANT'|'EXTRA';optionId:string;optionName:string;missingItemIds:string[]}[];orders:{id:string;number:number;status:string;blockedItemIds:string[]}[];resources:{id:string;name:string;available:boolean}[]};

@@ -1,0 +1,1 @@
+Demo workflow verified in Chromium. No real wallet connection, transaction or system notification. Widths: 320, 390, 736, 1280 px.

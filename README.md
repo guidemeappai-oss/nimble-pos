@@ -1,3 +1,7 @@
+# Nimble POS — fork projektu Nimble
+
+**Zacznij od [FORK-START-PL.md](FORK-START-PL.md)** — instalacja, uruchomienie, zakres funkcji i bramki przed live.
+
 # Nimble
 
 Code-mediated peer-to-peer payments inside [Nimiq Pay](https://nimiq.com).
@@ -10,11 +14,50 @@ exchanged.
 
 Nimble is a Nimiq Pay **Mini App**: a web app running in a WebView inside
 Nimiq Pay, talking to the wallet through the injected `window.nimiq`
-provider (`@nimiq/mini-app-sdk`). Keys never leave the wallet; the backend
-never signs anything.
+provider (`@nimiq/mini-app-sdk`). Customer and venue-owner keys stay in their wallets. The backend never signs
+customer payments or owner refunds. An optional isolated operator-funded wallet
+signs 1-luna pickup signals; see [ADR 0001](docs/adr/0001-notification-wallet.md).
 
 > **Judging the competition?** [JUDGES.md](JUDGES.md) answers the scoring
 > checklist question by question, with pointers to verify every claim.
+
+## Merchant Counter
+
+Counter turns a shared Android phone into a venue POS: a product menu with
+sizes and paid extras, cashier profiles and PINs, personal shifts, itemized
+orders, QR/code checkout, and preparation/ready/collection tracking. Prices
+are shown in EUR, PLN or USD alongside NIM/USDT estimates. Payments go directly
+to the owner's receiving address; employees never receive wallet spending
+credentials. Full refunds require the owner on their own phone.
+
+Run the web app and open **`/merchant/demo`** to try Maison Café without a
+wallet, database or real funds. Live owner setup is under `/merchant/owner`,
+and the paired cashier phone under `/merchant/terminal`. Customers can scan
+an order at `/merchant/scan` or follow its checkout link.
+
+Loyalty cards: `/merchant/loyalty/demo` demonstrates five purchases and a free reward.
+Customers find their live cards under `/merchant/cards`; owners configure the reward
+and minimum purchase in the Loyalty tab. Rewards stay separate from paid sales.
+See [loyalty setup and acceptance](docs/product/loyalty-running.md).
+
+Remote pickup ordering adds venue discovery at `/venues`, customer orders at
+`/orders`, and an isolated demonstration at `/remote/demo`. Customers order and
+pay before arriving; a cashier must explicitly accept the paid order before
+preparation begins. Rejected or unanswered orders require an owner-authorized
+refund. The customer carries the pickup QR on their own phone, and the cashier
+verifies it before confirming handover. Remote ordering defaults to disabled
+(`REMOTE_ORDERING_ENABLED=0`); see [setup and acceptance](docs/product/remote-ordering-running.md).
+
+See [the setup and device verification guide](docs/product/merchant-running.md)
+for live RPC configuration, exact payment verification, recovery after an
+interrupted wallet approval, and the optional operator-funded one-luna pickup
+signal. Native signing/network capabilities and background notifications still
+require physical Nimiq Pay testing. The demo does not simulate real usage or
+claim that a transaction has been sent.
+
+[Counter preview](docs/product/screenshots/counter-desktop.png) ·
+[Customer checkout](docs/product/screenshots/checkout.png) ·
+[Pickup screen](docs/product/screenshots/pickup.png)
 
 ## Try it (no setup)
 

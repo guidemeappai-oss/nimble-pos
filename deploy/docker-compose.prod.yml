@@ -15,9 +15,28 @@ services:
       NIMIQ_NETWORK: ${NIMIQ_NETWORK:-TestAlbatross}
       # Optional: the API defaults to the matching public RPC per network.
       NIMIQ_RPC_URL: ${NIMIQ_RPC_URL:-}
+      # USDT uses Polygon; keep unset until a verified Polygon RPC is configured.
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-}
+      # Enable only after migration and customer/cashier acceptance testing.
+      WALLET_DISCOVERY_ENABLED: ${WALLET_DISCOVERY_ENABLED:-0}
+      REMOTE_ORDERING_ENABLED: ${REMOTE_ORDERING_ENABLED:-0}
+      # An isolated operator-funded wallet; never use an owner's wallet key.
+      NOTIFICATIONS_ENABLED: ${NOTIFICATIONS_ENABLED:-false}
+      NOTIFICATION_PRIVATE_KEY_HEX: ${NOTIFICATION_PRIVATE_KEY_HEX:-}
+      NOTIFICATION_SENDER_ADDRESS: ${NOTIFICATION_SENDER_ADDRESS:-}
+      NOTIFICATION_RPC_URL: ${NOTIFICATION_RPC_URL:-}
+      NOTIFICATION_NETWORK_ID: ${NOTIFICATION_NETWORK_ID:-}
+      NOTIFICATION_DAILY_BUDGET_LUNA: ${NOTIFICATION_DAILY_BUDGET_LUNA:-}
+      NOTIFICATION_FEE_LUNA: ${NOTIFICATION_FEE_LUNA:-}
+      NOTIFICATION_MAX_PER_MINUTE: ${NOTIFICATION_MAX_PER_MINUTE:-}
       # Named in the wallet's sign-in prompt so the user sees who is asking.
       APP_ORIGIN: ${APP_ORIGIN:-nimble.gallareton.pl}
+      MENU_IMAGE_DIR: /var/lib/nimble/menu-images
+      TASK_PHOTO_DIR: /var/lib/nimble/task-photos
       NODE_ENV: production
+    volumes:
+      - nimble-menu-images:/var/lib/nimble/menu-images
+      - nimble-task-photos:/var/lib/nimble/task-photos
     depends_on:
       db:
         condition: service_healthy
@@ -37,3 +56,5 @@ services:
       retries: 20
 volumes:
   nimble-db:
+  nimble-task-photos:
+  nimble-menu-images:

@@ -1,0 +1,77 @@
+import {afterAll,expect,it} from 'vitest';
+import {freshDb} from './helpers/db';
+import {authedApp,makeUser} from './helpers/actors';
+const {db,close}=await freshDb(),{app,tokenFor}=authedApp(db);const key=()=>crypto.randomUUID();
+afterAll(async()=>{await app.close();await close()});
+async function setup(){
+ const headers={authorization:`Bearer ${await tokenFor(await makeUser(db,'NQ-production-'+key()))}`};
+ const venue=(await app.inject({method:'POST',url:'/v1/merchant/venues',headers,payload:{name:'Production',fiatCurrency:'EUR',nimAddress:'NQ-production-123'}})).json();
+ const base=`/v1/merchant/venues/${venue.id}`,call=(method:any,path:string,payload?:any)=>app.inject({method,url:base+path,headers,payload});
+ const item=async(name:string,unit:string,openingQuantity:number)=>(await call('POST','/inventory',{name,unit,openingQuantity,tracked:true,threshold:0,reason:'Opening',idempotencyKey:key()})).json();
+ const raw=await item('Coffee','MILLIGRAM',100000),output=await item('Prepared coffee','PORTION',0);
+ const recipe=(await call('POST','/recipes',{name:'Coffee batch',ingredients:[{kind:'ITEM',itemId:raw.id,quantity:'18',unit:'g'}],reason:'Batch recipe',idempotencyKey:key()})).json();
+ const payload={recipeVersionId:recipe.id,outputItemId:output.id,batches:2,expectedYieldPerBatch:3,actualYield:5,reason:'Two prepared batches',idempotencyKey:key()};
+ const stock=async()=>(await call('GET','/inventory')).json().items;
+ return {call,raw,output,recipe,payload,stock,headers,base};
+}
+it('atomically consumes ingredients and records actual yield, loss, safe retries and one reversal',async()=>{
+ const f=await setup();
+ const made=await f.call('POST','/production',f.payload);expect(made.statusCode).toBe(200);expect(made.json()).toMatchObject({expectedYield:6,actualYield:5,waste:1,recipe:{id:f.recipe.id,version:1,costMinor:null}});
+ expect((await f.call('POST','/production',f.payload)).json()).toEqual(made.json());
+ const move=(await f.call('GET',`/inventory/${f.raw.id}/movements`)).json().movements.find((m:any)=>m.kind==='PRODUCTION');
+ expect((await f.call('POST',`/inventory/${f.raw.id}/movements/${move.id}/reverse`,{revision:2,reason:'Cannot bypass batch correction',idempotencyKey:key()})).json().error.code).toBe('SEMANTIC_CORRECTION_REQUIRED');
+ expect(await f.stock()).toEqual(expect.arrayContaining([expect.objectContaining({id:f.raw.id,quantity:64000}),expect.objectContaining({id:f.output.id,quantity:5})]));
+ const reverse={reason:'Incorrect entry; physical ingredients restored',idempotencyKey:key()};
+ const responses=await Promise.all([f.call('POST',`/production/${made.json().id}/reverse`,reverse),f.call('POST',`/production/${made.json().id}/reverse`,reverse)]);
+ expect(responses.map(r=>r.statusCode)).toEqual([200,200]);expect(responses[0].json()).toEqual(responses[1].json());
+ expect(await f.stock()).toEqual(expect.arrayContaining([expect.objectContaining({id:f.raw.id,quantity:100000}),expect.objectContaining({id:f.output.id,quantity:0})]));
+ expect((await f.call('POST',`/production/${made.json().id}/reverse`,{...reverse,idempotencyKey:key()})).json().error.code).toBe('PRODUCTION_ALREADY_REVERSED');
+});
+it('rolls back shortages and failed corrections, rejects cycles and foreign output resources',async()=>{
+ const f=await setup(),other=await setup();
+ expect((await f.call('POST','/production',{...f.payload,batches:10,actualYield:5})).statusCode).toBe(409);
+ expect((await f.call('POST','/production',{...f.payload,outputItemId:f.raw.id})).json().error.code).toBe('PRODUCTION_CYCLE');
+ expect((await f.call('POST','/production',{...f.payload,outputItemId:other.output.id})).statusCode).toBe(404);
+ expect((await f.call('GET','/production')).json().items).toHaveLength(0);
+ const made=(await f.call('POST','/production',{...f.payload,idempotencyKey:key()})).json();
+ await f.call('POST',`/inventory/${f.output.id}/movements`,{delta:-1,revision:2,reason:'A portion used',idempotencyKey:key()});
+ expect((await f.call('POST',`/production/${made.id}/reverse`,{reason:'Cannot undo consumed output',idempotencyKey:key()})).statusCode).toBe(409);
+ expect(await f.stock()).toEqual(expect.arrayContaining([expect.objectContaining({id:f.raw.id,quantity:64000}),expect.objectContaining({id:f.output.id,quantity:4})]));
+ expect((await f.call('GET','/production')).json().items[0].status).toBe('PRODUCED');
+ const loop=(await f.call('POST','/recipes',{name:'Loop',ingredients:[{kind:'ITEM',itemId:f.output.id,quantity:'1',unit:'portion'}],reason:'Cycle attempt',idempotencyKey:key()})).json();
+ expect((await f.call('POST','/production',{...f.payload,recipeVersionId:loop.id,outputItemId:f.raw.id,idempotencyKey:key()})).json().error.code).toBe('PRODUCTION_CYCLE');
+});
+it('transfers exact ingredient cost to finished portions and sells portions without consuming raw stock twice',async()=>{
+ const f=await setup();
+ await f.call('POST',`/inventory/${f.raw.id}/movements`,{delta:-100000,revision:1,reason:'Empty before priced receipt',idempotencyKey:key()});
+ const supplier=(await f.call('POST','/inventory/suppliers',{name:'Roaster',idempotencyKey:key()})).json();
+ const delivery=(await f.call('POST','/inventory/deliveries',{supplierId:supplier.id,lines:[{itemId:f.raw.id,expectedQuantity:1000000,totalCostMinor:2000}],idempotencyKey:key()})).json();
+ await f.call('POST',`/inventory/deliveries/${delivery.id}/receipts`,{lines:[{itemId:f.raw.id,quantity:1000000}],reason:'Received',idempotencyKey:key()});
+ const made=await f.call('POST','/production',f.payload);expect(made.statusCode).toBe(200);expect(made.json().recipe.costMinor).toBe('36');
+ const manager=(await f.call('POST','/employees',{name:'Production manager',pin:'5678'})).json();
+ await app.inject({method:'PATCH',url:`/v1/merchant/employees/${manager.id}`,headers:f.headers,payload:{role:'MANAGER',permissions:['inventory.manage'],reason:'Production only'}});
+ const paired=(await f.call('POST','/terminal')).json();
+ const managerAuth={authorization:`Bearer ${(await app.inject({method:'POST',url:'/v1/merchant/terminal/login',headers:{'x-terminal-token':paired.terminalToken},payload:{employeeId:manager.id,pin:'5678'}})).json().token}`};
+ const redacted=(await app.inject({url:f.base+'/production',headers:managerAuth})).json().items[0];
+ expect(redacted.recipe.costMinor).toBeNull();expect(redacted.unitCosts).toEqual([]);expect(redacted.outputCost).toBeNull();
+ expect((await app.inject({method:'POST',url:f.base+`/production/${made.json().id}/reverse`,headers:managerAuth,payload:{reason:'No owner authority',idempotencyKey:key()}})).statusCode).toBe(403);
+ const {recipeCostSnapshot}=await import('../src/services/inventoryCost');
+ expect((await recipeCostSnapshot(db,f.raw.venueId,[{itemId:f.output.id,quantity:5}])).costMinor).toBe('72');
+ const product=(await f.call('POST','/catalog',{name:'Prepared coffee',category:'Drinks',variants:[{id:key(),name:'Cup',priceMinor:400,stockBindings:[{itemId:f.output.id,quantity:1}]}],extras:[]})).json();
+ const employee=(await f.call('POST','/employees',{name:'Cashier',pin:'1234'})).json(),terminal=(await f.call('POST','/terminal')).json();
+ const cashier={authorization:`Bearer ${(await app.inject({method:'POST',url:'/v1/merchant/terminal/login',headers:{'x-terminal-token':terminal.terminalToken},payload:{employeeId:employee.id,pin:'1234'}})).json().token}`};
+ await app.inject({method:'POST',url:'/v1/merchant/shifts',headers:cashier});
+ app.deps.merchantPayments={quote:async i=>({...i,id:key(),network:'nimiq:5',amountAtomic:'400000',expiresAt:new Date(Date.now()+60000).toISOString(),rate:'1',rateAt:new Date().toISOString(),rateSource:'test'}),verify:async({quote,hash})=>({...quote,hash,confirmedAt:new Date().toISOString()})};
+ const order=(await app.inject({method:'POST',url:'/v1/merchant/orders',headers:{...cashier,'idempotency-key':key()},payload:{lines:[{productId:product.id,variantId:product.variants[0].id,extraIds:[],quantity:1}]}})).json();
+ const q=(await app.inject({method:'POST',url:`/v1/merchant/checkout/${order.checkoutToken}/quote`,payload:{revision:1,asset:'NIM',sender:'NQ-production-buyer'}})).json();
+ expect((await app.inject({method:'POST',url:`/v1/merchant/checkout/${order.checkoutToken}/payment`,payload:{revision:1,quoteId:q.quote.id,hash:'e'.repeat(64)}})).statusCode).toBe(200);
+ expect(await f.stock()).toEqual(expect.arrayContaining([expect.objectContaining({id:f.raw.id,quantity:964000}),expect.objectContaining({id:f.output.id,quantity:4})]));
+});
+it('keeps production expiry provenance and refuses reversal using a later replacement batch',async()=>{
+ const f=await setup(),made=(await f.call('POST','/production',{...f.payload,lot:{label:'Original prepared batch',expiresAt:'2027-01-01T12:00:00Z'}})).json();
+ const lots=(await f.call('GET',`/inventory/${f.output.id}/lots`)).json();expect(lots.items[0]).toMatchObject({source:'PRODUCTION',sourceId:made.id,label:'Original prepared batch',expiresAt:'2027-01-01T12:00:00.000Z',quantity:5});
+ expect((await f.call('POST',`/inventory/${f.output.id}/movements`,{delta:-1,revision:2,reason:'One portion consumed',idempotencyKey:key()})).statusCode).toBe(200);
+ expect((await f.call('POST','/production',{...f.payload,idempotencyKey:key(),lot:{label:'Later batch',expiresAt:'2028-01-01T12:00:00Z'}})).statusCode).toBe(200);
+ const reversed=await f.call('POST',`/production/${made.id}/reverse`,{reason:'Original output incomplete',idempotencyKey:key()});expect(reversed.statusCode).toBe(409);expect(reversed.json().error.code).toBe('LOT_STOCK_UNAVAILABLE');
+ expect((await f.call('GET',`/inventory/${f.output.id}/lots`)).json().physicalQuantity).toBe(9);
+});

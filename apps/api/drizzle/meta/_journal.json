@@ -64,6 +64,223 @@
       "when": 1788895496442,
       "tag": "0008_thin_mauler",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791994029382,
+      "tag": "0009_sparkling_corsair",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792014000328,
+      "tag": "0010_fast_thor_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792041063148,
+      "tag": "0011_merchant_transfer_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792041503802,
+      "tag": "0012_preserve_order_cancellation",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792053960081,
+      "tag": "0013_loyalty_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792068268092,
+      "tag": "0014_low_scarecrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792068653011,
+      "tag": "0015_ordinary_eternals",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792124266681,
+      "tag": "0016_shallow_phalanx",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792126132384,
+      "tag": "0017_perpetual_wilson_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792126274168,
+      "tag": "0018_complete_skaar",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792126739495,
+      "tag": "0019_familiar_gambit",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792127644027,
+      "tag": "0020_tough_terrax",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792128867331,
+      "tag": "0021_thick_pepper_potts",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1792129738156,
+      "tag": "0022_certain_invisible_woman",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792146765822,
+      "tag": "0023_sad_celestials",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792148872292,
+      "tag": "0024_polite_stellaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792152328397,
+      "tag": "0025_lying_agent_brand",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792153490003,
+      "tag": "0026_workable_thor_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792167991726,
+      "tag": "0027_busy_order_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1792170216139,
+      "tag": "0028_mm27_scheduling",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792170217139,
+      "tag": "0029_shift_handover",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792170218139,
+      "tag": "0030_menu_schedule",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792170219139,
+      "tag": "0031_menu_images",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792170220139,
+      "tag": "0032_discounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792170222139,
+      "tag": "0034_work_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792170223139,
+      "tag": "0035_wallet_discovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792177485457,
+      "tag": "0036_recipe_units",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792211173635,
+      "tag": "0037_ingredient_availability",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792211723757,
+      "tag": "0038_inventory_lots",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792212803986,
+      "tag": "0039_deposit_resolutions",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792214354095,
+      "tag": "0040_financial_sales",
+      "breakpoints": true
     }
   ]
 }

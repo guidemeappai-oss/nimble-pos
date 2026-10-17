@@ -4,6 +4,7 @@ import { APP_STORE, DEEPLINK, PLAY_STORE, remoteChargeDeeplink } from '../lib/ho
 import { t } from '../i18n'
 import { lunaToNim } from '@nimble/shared'
 import type { ChargeRequestPreview } from '@nimble/shared'
+import { MerchantEntry } from '../merchant/MerchantEntry'
 import { DemoVideo } from './DemoVideo'
 
 // Shown when the page is opened in a plain browser instead of Nimiq Pay.
@@ -21,6 +22,7 @@ export function Landing({ chargeId, bill }: { chargeId?: string; bill?: ChargeRe
 
   return (
     <main>
+      {!chargeId && <MerchantEntry />}
       <div className="hero">
         <h1 className="brand">NIM<em>ble</em></h1>
         {bill && bill.state === 'open' ? (
@@ -81,8 +83,8 @@ export function Landing({ chargeId, bill }: { chargeId?: string; bill?: ChargeRe
             <span>{t('Webshops and cash registers create charges via API and webhooks.')}</span>
           </li>
           <li className="rm-later">
-            <strong>{t('USDT on Polygon')}</strong>
-            <span>{t('Same flow, stable value — the session model is asset-agnostic.')}</span>
+            <strong>{t('Counter for merchants')}</strong>
+            <span>Menu, cashier PINs, pickup queue and NIM/USDT checkout. Try the simulated café above; live payments require configured receiving wallets.</span>
           </li>
         </ul>
       </section>

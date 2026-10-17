@@ -1,0 +1,18 @@
+import {afterEach,expect,it,vi} from 'vitest';
+import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {FinanceBoard} from '../src/merchant/FinanceBoard';
+import type {FinanceReport} from '@nimble/shared';
+afterEach(()=>{cleanup();vi.unstubAllGlobals()});
+const report:FinanceReport={from:'2026-10-17T00:00:00Z',until:'2026-10-18T00:00:00Z',generatedAt:'2026-10-18T12:00:00Z',liabilitiesAsOf:'2026-10-18T12:00:00Z',reconciled:true,warnings:[],unverifiedOrders:0,fiat:[{currency:'EUR',listMinor:'1000',discountMinor:'100',salesMinor:'900',refundedSalesMinor:'900',netSalesMinor:'0'}],assets:[{asset:'NIM',network:'nimiq:5',receivedAtomic:'100000',submittedRefundsAtomic:'450000',confirmedRefundsAtomic:'450000',netCashAtomic:'-350000',refundLiabilityAtomic:'0',awaitingAcceptanceAtomic:'0',unallocatedAtomic:'0'}],entries:[{scope:'RANGE',kind:'SALE',at:'2026-10-17T10:00:00Z',orderId:'order',sourceId:'sale',liabilityId:null,asset:null,network:null,fiatCurrency:'EUR',amountAtomic:null,amountMinor:'900',listMinor:'1000',discountMinor:'100',hash:'a'.repeat(64),label:'Recorded test sale'}],coverage:[]};
+it('shows the immutable report range, separate current liabilities and signed flows, then retains it on a failed refresh',async()=>{
+ let fail=false;const request=vi.fn(async()=>{if(fail)throw new Error('Offline');return report});render(<FinanceBoard api={{request} as never} venueId="venue" scope="owner"/>);expect(request).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Generate reconciliation'}));await screen.findByText('Known records are consistent.');expect(screen.getByText('-3.5 NIM')).toBeTruthy();expect(screen.getByText(/Current liabilities as of/)).toBeTruthy();expect(screen.getByText(/2026-10-17T00:00:00Z/)).toBeTruthy();
+ fireEvent.change(screen.getByLabelText('Finance from (UTC)'),{target:{value:'2026-10-16T00:00'}});fail=true;fireEvent.click(screen.getByRole('button',{name:'Generate reconciliation'}));await screen.findByRole('alert');expect(screen.getByText('Recorded test sale')).toBeTruthy();expect(screen.getByText(/last successful report remains/)).toBeTruthy();
+});
+it('discards a late response after the venue and owner scope change',async()=>{
+ let finish!:(r:FinanceReport)=>void;const request=vi.fn(()=>new Promise<FinanceReport>(resolve=>finish=resolve)),api={request} as never;
+ const view=render(<FinanceBoard api={api} venueId="old" scope="alice"/>);fireEvent.click(screen.getByRole('button',{name:'Generate reconciliation'}));view.rerender(<FinanceBoard api={api} venueId="new" scope="bob"/>);await act(async()=>finish(report));expect(screen.queryByText('Recorded test sale')).toBeNull();expect(screen.queryByRole('button',{name:'Export displayed reconciliation CSV'})).toBeNull();
+});
+it('exports the displayed snapshot and leaves no active download URL',async()=>{
+ const created=vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:finance'),revoked=vi.spyOn(URL,'revokeObjectURL').mockImplementation(()=>{}),click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
+ render(<FinanceBoard api={{request:vi.fn(async()=>report)} as never} venueId="venue" scope="owner"/>);fireEvent.click(screen.getByRole('button',{name:'Generate reconciliation'}));fireEvent.click(await screen.findByRole('button',{name:'Export displayed reconciliation CSV'}));expect(click).toHaveBeenCalledOnce();expect(created.mock.calls[0][0]).toBeInstanceOf(Blob);await waitFor(()=>expect(revoked).toHaveBeenCalledWith('blob:finance'),{timeout:2000});created.mockRestore();revoked.mockRestore();click.mockRestore();
+});

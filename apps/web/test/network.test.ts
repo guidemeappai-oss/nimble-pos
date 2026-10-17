@@ -9,7 +9,31 @@ function mockFetch(routes: Record<string, unknown>) {
   }))
 }
 
-afterEach(() => { vi.unstubAllGlobals(); localStorage.clear() })
+afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); delete (window as unknown as { nimiqPay?: object }).nimiqPay })
+
+it('routes by the official host network even when both chains have the same height', async () => {
+  vi.resetModules()
+  mockFetch({
+    '/api/main/v1/network': { network: 'MainAlbatross', height: 100 },
+    '/api/test/v1/network': { network: 'TestAlbatross', height: 100 },
+  })
+  ;(window as unknown as { nimiqPay: object }).nimiqPay = { network: 'testnet' }
+  vi.doMock('../src/wallet', () => ({ getWallet: () => ({
+    getBlockNumber: async () => 100,
+    isConsensusEstablished: async () => true,
+  }) }))
+  const { detectNetwork } = await import('../src/lib/network')
+  expect((await detectNetwork()).net).toBe('test')
+  vi.doUnmock('../src/wallet')
+})
+
+it('blocks routing when only a backend for the other host network is available', async () => {
+  vi.resetModules()
+  mockFetch({ '/api/main/v1/network': { network: 'MainAlbatross', height: 100 } })
+  ;(window as unknown as { nimiqPay: object }).nimiqPay = { network: 'testnet' }
+  const { detectNetwork } = await import('../src/lib/network')
+  await expect(detectNetwork()).rejects.toThrow('NETWORK_UNAVAILABLE')
+})
 
 it('falls back to legacy single-stack when no /api prefixes exist', async () => {
   vi.resetModules()

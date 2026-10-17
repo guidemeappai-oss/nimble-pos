@@ -5,6 +5,7 @@
 // (no /api/* prefixes) are detected and used as-is.
 import { getWallet } from '../wallet'
 import { inNimiqPay } from './host'
+import { hostNimiqNetwork } from '../wallet/hostNetwork'
 
 export type NetworkChoice = { base: string; suffix: string; net: 'main' | 'test' | 'single' }
 
@@ -49,6 +50,16 @@ async function resolve(): Promise<NetworkChoice> {
   let [main, test] = await Promise.all([probe('/api/main'), probe('/api/test')])
   // legacy production (no prefixes yet) → same-origin single backend
   if (!main && !test) return { base: '', suffix: '', net: 'single' }
+
+  // Host metadata identifies the chain even while consensus is still syncing.
+  // Never silently route a known wallet to the other available backend.
+  const hostNetwork = hostNimiqNetwork()
+  if (hostNetwork) {
+    const selected = hostNetwork === 'mainnet' ? main : test
+    const expected = hostNetwork === 'mainnet' ? 'MainAlbatross' : 'TestAlbatross'
+    if (!selected || selected.network !== expected) throw new Error('NETWORK_UNAVAILABLE')
+    return hostNetwork === 'mainnet' ? MAIN : TEST
+  }
 
   const height = await walletHeight()
 
@@ -116,7 +127,7 @@ export function watchNetworkFlips() {
         localStorage.setItem(REMEMBER_KEY, next.net === 'single' ? 'main' : next.net)
         window.location.reload()
       }
-    })
+    }).catch(() => { /* Keep the current stack; payment guards still fail closed. */ })
   })
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { TERMINAL_STATES, lunaToNim, type SessionView } from '@nimble/shared'
 import { useAppOptional } from '../AppContext'
 import { Countdown } from '../components/Countdown'
@@ -57,6 +57,8 @@ export function Approval(props: { api?: Api; wallet?: WalletProvider }) {
   }, [api, chargeIdForCheck])
 
   if (!view) return <main><p>{t('Loading…')}</p></main>
+  const merchantToken = (view as SessionView & { merchantCheckoutToken?: string }).merchantCheckoutToken
+  if (view.role === 'payer' && merchantToken) return <Navigate to={`/merchant/checkout/${merchantToken}`} replace />
 
   const confirm = async () => {
     if (!view.charge) return

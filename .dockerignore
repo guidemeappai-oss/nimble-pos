@@ -5,3 +5,14 @@ private
 e2e/test-results
 e2e/playwright-report
 **/dist
+
+# Never include private task evidence in the build context
+.private
+**/.private
+
+.fork.env
+.env
+.env.*
+**/.env
+**/.env.*
+**/.public

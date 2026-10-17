@@ -1,0 +1,1 @@
+ALTER TABLE "merchant_order" ADD CONSTRAINT "merchant_counter_staff_required" CHECK (source = 'REMOTE' or (source = 'COUNTER' and employee_id is not null and shift_id is not null));

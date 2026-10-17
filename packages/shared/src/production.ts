@@ -1,0 +1,5 @@
+import {InventoryLotMetadata,type LotDelta} from './inventoryLots';
+import {z} from 'zod';
+import type {RecipeSnapshot} from './recipes';
+export const ProductionInput=z.object({lot:InventoryLotMetadata.optional(),recipeVersionId:z.string().uuid(),outputItemId:z.string().uuid(),batches:z.number().int().min(1).max(1000),expectedYieldPerBatch:z.number().int().min(1).max(2147483647),actualYield:z.number().int().min(0).max(2147483647),reason:z.string().trim().min(3).max(500),idempotencyKey:z.string().uuid()}).strict();
+export type ProductionBatch={inputLotDeltas?:{itemId:string;deltas:LotDelta[]}[];outputLotDeltas?:LotDelta[];id:string;venueId:string;status:'PRODUCED'|'REVERSED';recipe:RecipeSnapshot;batches:number;outputItemId:string;expectedYield:number;actualYield:number;waste:number;requirements:{itemId:string;quantity:number}[];unitCosts:{itemId:string;numerator:string|null;denominator:string}[];outputCost:{numerator:string;denominator:string}|null;reason:string;createdAt:string;createdBy:string;reversedAt:string|null;reversedBy:string|null;reversalReason:string|null};

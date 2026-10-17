@@ -7,6 +7,11 @@ import { makeDb } from '../../src/db/client'
 const TEST_DB_URL = process.env.TEST_DATABASE_URL
   ?? 'postgres://postgres:nimblink@localhost:5433/nimblink_test'
 
+const testTarget = new URL(TEST_DB_URL)
+if (!['postgres:', 'postgresql:'].includes(testTarget.protocol) || !/^\/[A-Za-z0-9_]+_test$/.test(testTarget.pathname)) {
+  throw new Error('Refusing destructive fixtures: TEST_DATABASE_URL database name must end in _test')
+}
+
 let migrated = false
 
 export async function freshDb() {

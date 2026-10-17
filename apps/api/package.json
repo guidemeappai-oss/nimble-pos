@@ -18,6 +18,8 @@
     "fastify": "^5.2.0",
     "jose": "^5.9.0",
     "postgres": "^3.4.5",
+    "sharp": "0.34.5",
+    "viem": "^2.57.6",
     "zod": "^3.24.0"
   },
   "devDependencies": {

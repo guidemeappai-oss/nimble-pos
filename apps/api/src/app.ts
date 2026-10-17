@@ -13,16 +13,21 @@ import { chargeRequestRoutes } from './routes/chargeRequests'
 import { refundRoutes } from './routes/refunds'
 import { sseRoutes } from './routes/sse'
 import { historyRoutes } from './routes/history'
+import { merchantRoutes } from './routes/merchant'
+import type { MerchantPaymentGateway } from './services/merchantGateway'
 import { shiftRoutes } from './routes/shifts'
 
 import { nullRates, type RateProvider } from './services/rates'
 import type { ChainClient } from './services/monitor'
 import type { BalanceReader } from './services/balances'
 import type { HostVerifier } from './services/hostVerifier'
+import type { WalletDiscoverySource } from './services/walletDiscoverySource'
 export interface AppDeps {
   db: Db; hostVerifier: HostVerifier; events: SessionEvents; rates?: RateProvider
   // late-bound: the chain client connects after listen()
   chainRef?: { current: ChainClient | null }
+  walletDiscovery?: WalletDiscoverySource
+  merchantPayments?: MerchantPaymentGateway
   balances?: BalanceReader
 }
 
@@ -30,13 +35,15 @@ export function buildApp(deps: AppDeps) {
   const app = Fastify({ logger: true })
   app.register(cors, {
     origin: env.corsOrigin,
-    methods: ['GET', 'POST', 'PATCH'],
-    allowedHeaders: ['authorization', 'content-type', 'idempotency-key'],
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH'],
+    allowedHeaders: ['authorization', 'content-type', 'idempotency-key', 'x-terminal-token'],
   })
   app.decorate('deps', deps)
   app.decorate('authenticate', authenticate)
 
   app.setErrorHandler((err, _req, reply) => {
+    if ((err as {code?: string}).code === 'FST_ERR_CTP_BODY_TOO_LARGE')
+      return reply.code(413).send({error:{code:'PHOTO_TOO_LARGE',message:'request body too large'}})
     if (err instanceof ZodError)
       return reply.code(400).send({ error: { code: 'VALIDATION', message: 'invalid request body' } })
     // postgres 22P02 (invalid text representation, e.g. malformed uuid in a
@@ -79,6 +86,7 @@ export function buildApp(deps: AppDeps) {
   app.register(sseRoutes)
   app.register(historyRoutes)
   app.register(shiftRoutes)
+  app.register(merchantRoutes)
   return app
 }
 declare module 'fastify' {

@@ -7,12 +7,14 @@ import { freshDb } from './helpers/db'
 import { authedApp, makeUser } from './helpers/actors'
 
 const apiRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
-const tsxCli = join(dirname(createRequire(import.meta.url).resolve('tsx/package.json')), 'dist/cli.mjs')
+const tsxLoader = join(dirname(createRequire(import.meta.url).resolve('tsx/package.json')), 'dist/loader.mjs')
 
 function runServerWithEnv(extraEnv: Record<string, string | undefined>) {
   const env = { ...process.env, ...extraEnv }
   for (const [key, value] of Object.entries(extraEnv)) if (value === undefined) delete env[key]
-  return spawnSync(process.execPath, [tsxCli, join(apiRoot, 'src/server.ts')], {
+  // Use tsx's supported Node loader so these startup checks also run in
+  // environments without Unix sockets for the CLI's optional IPC server.
+  return spawnSync(process.execPath, ['--import', tsxLoader, join(apiRoot, 'src/server.ts')], {
     cwd: apiRoot,
     env,
     encoding: 'utf8',

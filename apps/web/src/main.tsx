@@ -30,24 +30,38 @@ if (typeof window !== 'undefined') {
 function Boot() {
   const [ready, setReady] = useState(false)
   const [slow, setSlow] = useState(false)
+  const [error, setError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    let active = true
+    setError(false)
     const timer = setTimeout(() => setSlow(true), 2500)
     void detectNetwork().then(() => {
+      if (!active) return
       watchNetworkFlips()
       clearTimeout(timer)
       setReady(true)
+    }).catch(() => {
+      if (!active) return
+      clearTimeout(timer)
+      setError(true)
     })
-    return () => clearTimeout(timer)
-  }, [])
+    return () => { active = false; clearTimeout(timer) }
+  }, [attempt])
 
   if (ready) return <App />
 
   return (
     <main className="boot-screen">
       <h1 className="brand">NIM<em>ble</em></h1>
-      <Spinner />
-      {slow && <p className="quiet">{t('Waiting for your wallet to sync…')}</p>}
+      {error ? <div role="alert">
+        <p>{t('Your wallet network is unavailable. Check your connection and try again.')}</p>
+        <button onClick={() => setAttempt(value => value + 1)}>{t('Try again')}</button>
+      </div> : <>
+        <Spinner />
+        {slow && <p className="quiet">{t('Waiting for your wallet to sync…')}</p>}
+      </>}
     </main>
   )
 }

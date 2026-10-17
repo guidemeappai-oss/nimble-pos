@@ -1,0 +1,174 @@
+.l-card {
+  background: linear-gradient(135deg, #f5f6ef, #fffdf7);
+  border: 1px solid #dce3d8;
+  border-radius: 24px;
+  padding: 28px;
+  color: #173f32;
+  box-shadow: 0 8px 28px #173f3208;
+}
+.l-card h2 {
+  font-size: 1.7rem;
+  margin: 12px 0 0;
+}
+.l-card p {
+  margin: 8px 0 20px;
+}
+.l-mark {
+  font-size: 30px;
+}
+.l-stamps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 26px 0;
+}
+.l-stamp {
+  display: flex;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #b9c6b6;
+  border-radius: 50%;
+  font-size: 16px;
+  color: #819080;
+}
+.l-stamp.is-earned {
+  background: #173f32;
+  color: #f6f3dd;
+  border: 1px solid #173f32;
+  font-size: 28px;
+  animation: l-stamp-in 0.35s ease-out;
+}
+.l-card .l-rules {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #5b6b5f;
+  margin: 14px 0;
+}
+.l-card > .m-primary {
+  width: 100%;
+  margin-top: 12px;
+}
+.l-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 24px;
+}
+.l-checkout {
+  margin: 24px 0;
+  display: grid;
+  gap: 16px;
+}
+.l-checkout > small {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #637168;
+}
+.l-opt-in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.l-opt-in input {
+  width: 20px;
+  height: 20px;
+  accent-color: #173f32;
+}
+.l-ticket {
+  padding: 24px;
+  text-align: center;
+  background: #edf4eb;
+  border: 1px solid #dce3d8;
+  border-radius: 20px;
+  margin-top: 14px;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+.l-ticket p {
+  margin: 0;
+}
+.l-ticket .l-pickup {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.l-ticket code {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  padding: 12px;
+}
+.l-history {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid #e6e9e0;
+  border-radius: 16px;
+}
+.l-history summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+.l-queue {
+  grid-column: 1/-1;
+  display: grid;
+  gap: 16px;
+}
+.l-queue > form {
+  margin: 0;
+}
+.l-demo-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+@keyframes l-stamp-in {
+  from {
+    transform: scale(0.75);
+    opacity: 0.3;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .l-stamp.is-earned {
+    animation: none;
+  }
+}
+@media (max-width: 480px) {
+  .l-card {
+    padding: 20px;
+  }
+  .l-stamps {
+    gap: 7px;
+  }
+  .l-stamp.is-earned {
+    font-size: 23px;
+  }
+  .l-card .m-row {
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+.l-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+.l-layout > * {
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .l-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

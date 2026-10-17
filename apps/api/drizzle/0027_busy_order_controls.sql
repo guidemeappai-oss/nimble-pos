@@ -1,0 +1,2 @@
+ALTER TABLE "merchant_venue" ADD COLUMN "remote_queue_limit" integer DEFAULT 10 NOT NULL;--> statement-breakpoint
+ALTER TABLE "merchant_venue" ADD COLUMN "remote_paused_until" timestamp with time zone;

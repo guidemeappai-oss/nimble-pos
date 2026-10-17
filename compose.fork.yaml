@@ -1,0 +1,43 @@
+name: nimble-fork
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: nimble
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: nimble_fork
+    volumes:
+      - fork-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nimble -d nimble_fork"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://nimble:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/nimble_fork
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      CODE_PEPPER: ${CODE_PEPPER:?Set CODE_PEPPER}
+      APP_ORIGIN: ${APP_ORIGIN:-localhost:3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      NIMIQ_NETWORK: ${NIMIQ_NETWORK:-TestAlbatross}
+      NIMIQ_RPC_URL: ${NIMIQ_RPC_URL:-}
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-}
+      REMOTE_ORDERING_ENABLED: "1"
+      WALLET_DISCOVERY_ENABLED: ${WALLET_DISCOVERY_ENABLED:-0}
+      NOTIFICATIONS_ENABLED: "false"
+      TASK_PHOTO_DIR: /var/lib/nimble/task-photos
+      MENU_IMAGE_DIR: /var/lib/nimble/menu-images
+    volumes:
+      - fork-task-photos:/var/lib/nimble/task-photos
+      - fork-menu-images:/var/lib/nimble/menu-images
+volumes:
+  fork-db:
+  fork-task-photos:
+  fork-menu-images:
